@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realty Mind | Scraping Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#121212',
+                        card: '#1e1e1e',
+                        accent: '#ff5a00', /* Realty Mind Orange */
+                        accentHover: '#e04f00'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(30, 30, 30, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+        }
+        .status-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+
+    <div class="max-w-5xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center glass-card p-6">
+            <div class="flex items-center space-x-4">
+                <div class="h-12 w-12 rounded-full bg-accent flex items-center justify-center text-xl font-bold">
+                    <i class="fa-brands fa-whatsapp"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">Scraping Engine</h1>
+                    <p class="text-gray-400 text-sm">Realty Mind • WASendly Integration</p>
+                </div>
+            </div>
+            
+            <button onclick="runScraper()" id="runBtn" class="bg-accent hover:bg-accentHover transition-colors px-6 py-3 rounded-lg font-semibold flex items-center shadow-lg shadow-orange-500/20">
+                <i class="fa-solid fa-play mr-2"></i> Run Scraper Now
+            </button>
+        </header>
+
+        <!-- Main Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- System Status -->
+            <div class="glass-card p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-gray-400 font-medium">System Status</h3>
+                    {% if stats.last_run_status == 'success' %}
+                        <span class="flex h-3 w-3 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                    {% elif stats.last_run_status == 'failed' %}
+                        <span class="h-3 w-3 rounded-full bg-red-500"></span>
+                    {% else %}
+                        <span class="h-3 w-3 rounded-full bg-gray-500"></span>
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="text-3xl font-bold mb-1">
+                        {% if stats.last_run_status == 'success' %}
+                            <span class="text-green-400">Online</span>
+                        {% elif stats.last_run_status == 'failed' %}
+                            <span class="text-red-400">Failed</span>
+                        {% else %}
+                            <span class="text-gray-400">Standby</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-gray-500">Last Scrape: {{ stats.formatted_time }}</p>
+                </div>
+            </div>
+
+            <!-- Total Haul -->
+            <div class="glass-card p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-gray-400 font-medium">All-Time Contacts</h3>
+                    <i class="fa-solid fa-users text-gray-400"></i>
+                </div>
+                <div>
+                    <div class="text-4xl font-bold text-white mb-1">{{ stats.total_contacts_all_time }}</div>
+                    <p class="text-sm text-gray-500">Pushed to Webhook</p>
+                </div>
+            </div>
+
+            <!-- Last Run Stats -->
+            <div class="glass-card p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-gray-400 font-medium">Last Run Yield</h3>
+                    <i class="fa-solid fa-bolt text-accent"></i>
+                </div>
+                <div>
+                    <div class="flex items-baseline space-x-2">
+                        <span class="text-4xl font-bold text-white">{{ stats.last_run_contacts }}</span>
+                        <span class="text-gray-400 font-medium">contacts</span>
+                    </div>
+                    <p class="text-sm text-gray-500">From {{ stats.last_run_groups|default(0) }} new groups</p>
+                </div>
+            </div>
+            
+        </div>
+
+        {% if stats.last_run_status == 'failed' and stats.last_error %}
+        <!-- Error Alert -->
+        <div class="bg-red-900/30 border border-red-500/50 rounded-xl p-4 flex items-start">
+            <i class="fa-solid fa-triangle-exclamation text-red-400 mt-1 mr-3"></i>
+            <div>
+                <h4 class="text-red-400 font-semibold">Previous Run Failed</h4>
+                <p class="text-sm text-red-200 mt-1">{{ stats.last_error }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Runs History -->
+        <div class="glass-card p-6">
+            <h3 class="text-lg font-semibold mb-6">Recent Executions</h3>
+            
+            {% if stats.recent_runs %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-gray-400 border-b border-gray-800">
+                                <th class="pb-3 font-medium">Date & Time</th>
+                                <th class="pb-3 font-medium">Status</th>
+                                <th class="pb-3 font-medium">Groups</th>
+                                <th class="pb-3 font-medium text-right">Contacts Scraped</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            {% for run in stats.recent_runs %}
+                            <tr>
+                                <td class="py-4 text-sm">{{ run.date }}</td>
+                                <td class="py-4">
+                                    {% if run.status == 'success' %}
+                                    <span class="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full border border-green-500/20">Success</span>
+                                    {% else %}
+                                    <span class="px-2 py-1 bg-red-500/10 text-red-400 text-xs rounded-full border border-red-500/20">Failed</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-4 text-sm text-gray-300">{{ run.groups|default('--') }}</td>
+                                <td class="py-4 text-right font-medium {% if run.contacts|default(0) > 0 %}text-accent{% endif %}">
+                                    +{{ run.contacts|default(0) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fa-solid fa-inbox text-3xl mb-3 opacity-50"></i>
+                    <p>No recording runs yet.</p>
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 text-white px-6 py-4 rounded-xl shadow-2xl transition-transform transform translate-y-20 opacity-0 duration-300 flex items-center z-50">
+        <i id="toastIcon" class="mr-3 text-lg"></i>
+        <span id="toastMsg" class="font-medium"></span>
+    </div>
+
+    <script>
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            toastMsg.textContent = msg;
+            
+            if(isError) {
+                toastIcon.className = 'fa-solid fa-circle-xmark text-red-500 mr-3 text-lg';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-green-500 mr-3 text-lg';
+            }
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 4000);
+        }
+
+        async function runScraper() {
+            const btn = document.getElementById('runBtn');
+            const ogContent = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Launching...';
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+            try {
+                const res = await fetch('/api/run-scraper', { method: 'POST' });
+                const data = await res.json();
+                
+                if(data.success) {
+                    showToast('Scraper launched in a new window!');
+                } else {
+                    showToast('Failed to start scraper: ' + data.error, true);
+                }
+            } catch(e) {
+                showToast('Network error triggering scraper.', true);
+            } finally {
+                setTimeout(() => {
+                    btn.innerHTML = ogContent;
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                }, 2000);
+            }
+        }
+
+        // Auto reload page every minute to refresh stats
+        setInterval(() => {
+            window.location.reload();
+        }, 60000);
+    </script>
+</body>
+</html>
